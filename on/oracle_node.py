@@ -9,8 +9,8 @@ from config_parser import read_config
 PORT = 5000
 POLL_SECS = 1.0
 
-HDR = struct.Struct('!BH')          # [type:1B][length:2B], network byte order
-TUP = struct.Struct('!4sHBB')       # one LINK-STATE tuple: ip(4) port(2) id(1) cost(1) = 8 bytes
+HDR = struct.Struct('!BH')     
+TUP = struct.Struct('!4sHBB')       
 MSG_CONNECT = 1
 MSG_LINK_STATE = 2
 
@@ -22,7 +22,7 @@ def extract_messages(buf):
     while len(buf) >= HDR.size:
         mtype, blen = HDR.unpack_from(buf)
         if len(buf) < HDR.size + blen:
-            break                       # body hasn't fully arrived, wait for more
+            break                
         msgs.append((mtype, buf[HDR.size:HDR.size + blen]))
         buf = buf[HDR.size + blen:]
     return msgs, buf
@@ -34,16 +34,14 @@ def handle_message(idx, mtype, body, nodes):
         if len(body) != 6:
             print("node %s: bad CONNECT length %d" % (chr(65 + idx), len(body)))
             return False
-        ip = socket.inet_ntoa(body[:4])           # 4 raw bytes -> "10.0.0.1"
-        (port,) = struct.unpack('!H', body[4:6])  # 2 bytes, big-endian -> int
+        ip = socket.inet_ntoa(body[:4])           
+        (port,) = struct.unpack('!H', body[4:6])  
         nodes[idx] = (ip, port)
         print("CONNECT from %s = %s:%d" % (chr(65 + idx), ip, port))
         return True
     print("node %s: unknown message type %d" % (chr(65 + idx), mtype))
     return False
 
-
-# ---- step 7: LINK-STATE ----
 
 def pack_tuple(nodes, j, cost):
     ip, port = nodes[j]
@@ -54,7 +52,7 @@ def build_link_state(idx, graph, nodes):
     """Full LINK-STATE message for node idx: its own tuple (cost 0) + one per neighbour."""
     n = len(graph)
     body = pack_tuple(nodes, idx, 0)
-    if idx < n:                                   # idx >= n is an island: only its own tuple
+    if idx < n:                                 
         for j in range(n):
             if j != idx and graph[idx][j] > 0 and nodes[j] is not None:
                 body += pack_tuple(nodes, j, graph[idx][j])
@@ -93,7 +91,7 @@ def main():
     n = len(graph)
     print("loaded config: %d nodes" % n)
 
-    # step 3: listen for VN connections on TCP 5000
+    # step 3
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -104,11 +102,11 @@ def main():
     srv.listen(32)
     print("listening on %s:%d" % (bind_ip, PORT))
 
-    conns = []    # conns[0] = A, conns[1] = B, ...; None = disconnected
-    bufs = []     # bufs[i] = bytes from conns[i] not yet parsed
-    nodes = []    # nodes[i] = (ip, udp_port) once conns[i] sent CONNECT, else None
-    started = False                   # step 9: True once all N nodes have sent CONNECT
-    mtime = os.stat(path).st_mtime    # step 4: last-modified time we've seen
+    conns = []    
+    bufs = []     
+    nodes = []    
+    started = False                
+    mtime = os.stat(path).st_mtime  
 
     while True:
         live = [c for c in conns if c is not None]
@@ -140,14 +138,14 @@ def main():
                     bufs[idx] = b''
                     nodes[idx] = None
                 else:
-                    # step 5: accumulate bytes, parse complete messages
+                    # step 5
                     print("node %s: recv %d bytes: %s" % (chr(65 + idx), len(data), data.hex()))
                     bufs[idx] += data
                     msgs, bufs[idx] = extract_messages(bufs[idx])
                     for mtype, body in msgs:
-                        # step 6: decode CONNECT
+                        # step 6
                         if handle_message(idx, mtype, body, nodes):
-                            # step 9: when to send LINK-STATE
+                            # step 9
                             if started:
                                 send_link_state(conns, idx, graph, nodes)   # late joiner / island
                             elif len(nodes) >= n and all(x is not None for x in nodes[:n]):
@@ -155,11 +153,11 @@ def main():
                                 print("all %d nodes have sent CONNECT, sending LINK-STATE to everyone" % n)
                                 broadcast(conns, graph, nodes)              # all N connected
 
-        # step 4: check whether the config file changed
+        # step 4
         try:
             new_mtime = os.stat(path).st_mtime
         except OSError:
-            new_mtime = mtime         # file briefly missing (editor saving), skip this round
+            new_mtime = mtime
 
         if new_mtime != mtime:
             mtime = new_mtime
@@ -176,7 +174,7 @@ def main():
                     for row in graph:
                         print(row)
                     if started:
-                        broadcast(conns, graph, nodes)    # step 9: re-send after every change
+                        broadcast(conns, graph, nodes)    # step 9
 
 
 if __name__ == '__main__':
