@@ -67,7 +67,7 @@ def send_link_state(conns, idx, graph, nodes):
     msg = build_link_state(idx, graph, nodes)
     try:
         conns[idx].sendall(msg)
-        print("sent LINK-STATE to %s (%d bytes)" % (chr(65 + idx), len(msg)))
+        print("sent LINK-STATE to %s (%d bytes): %s" % (chr(65 + idx), len(msg), msg.hex()))
     except OSError as e:
         print("send to %s failed: %s" % (chr(65 + idx), e))
 
@@ -79,10 +79,11 @@ def broadcast(conns, graph, nodes):
 
 def main():
     # step 1
-    if len(sys.argv) != 2:
-        print("usage: python3 oracle_node.py <config_file>")
+    if len(sys.argv) != 3:
+        print("usage: python3 oracle_node.py <config_file> <bind_ip>")
         sys.exit(1)
     path = sys.argv[1]
+    bind_ip = sys.argv[2]
     if not os.path.isfile(path):
         print("config file not found:", path)
         sys.exit(1)
@@ -95,9 +96,13 @@ def main():
     # step 3: listen for VN connections on TCP 5000
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(('', PORT))
+    try:
+        srv.bind((bind_ip, PORT))
+    except OSError as e:
+        print("cannot bind %s:%d: %s" % (bind_ip, PORT, e))
+        sys.exit(1)
     srv.listen(32)
-    print("listening on TCP port %d" % PORT)
+    print("listening on %s:%d" % (bind_ip, PORT))
 
     conns = []    # conns[0] = A, conns[1] = B, ...; None = disconnected
     bufs = []     # bufs[i] = bytes from conns[i] not yet parsed
@@ -136,6 +141,7 @@ def main():
                     nodes[idx] = None
                 else:
                     # step 5: accumulate bytes, parse complete messages
+                    print("node %s: recv %d bytes: %s" % (chr(65 + idx), len(data), data.hex()))
                     bufs[idx] += data
                     msgs, bufs[idx] = extract_messages(bufs[idx])
                     for mtype, body in msgs:
@@ -146,6 +152,7 @@ def main():
                                 send_link_state(conns, idx, graph, nodes)   # late joiner / island
                             elif len(nodes) >= n and all(x is not None for x in nodes[:n]):
                                 started = True
+                                print("all %d nodes have sent CONNECT, sending LINK-STATE to everyone" % n)
                                 broadcast(conns, graph, nodes)              # all N connected
 
         # step 4: check whether the config file changed
