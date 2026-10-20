@@ -7,10 +7,11 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #ifdef DEBUG
 #define LOG(fmt, ...) \
-    fprintf(stdout, fmt, ##__VA_ARGS__);
+    fprintf(stderr, fmt, ##__VA_ARGS__);
 #else
 #define LOG(fmt, ...) ((void)0)
 #endif
@@ -30,7 +31,7 @@ size_t num_neighbours;
 
 uint16_t latest_seqno[26] = {}; 
 int adj[26][26] = {};
-unsigned seq_no = 0;
+unsigned seq_no = 1;
 
 int udp_fd;
 int tcp_fd;
@@ -65,24 +66,25 @@ void recieve_link_state(){
     int size = buf[1];
     unsigned seq_no = ntohl(*(int*)(&buf[2]));
 
-    LOG("Recieved Packet : %c : %u : %ul :", id + 'A', size, seq_no);
-    for(int i = 0; i < size; i++) {LOG(" (%c, %d)", buf[6 + 2*i], buf[7 + 2*i]);}
+    LOG("Recieved Packet : %c : %u : %lu :", id + 'A', size, seq_no);
+    for(int i = 0; i < size; i++) {LOG(" (%c, %d)", buf[6 + 2*i] + 'A', buf[7 + 2*i]);}
     LOG("\n");
     
-    if(latest_seqno[id] >= seq_no)  
+    if(latest_seqno[id] >= seq_no || id == me.id)  
         return;
 
-
+    latest_seqno[id] = seq_no;
     int j = 6;
+
+    memset(&adj[id], 0, sizeof(adj[id]));
     for(int i = 0; i < size; i++){
         adj[id][buf[j]] = buf[j+1];
-        adj[buf[j]][id] = buf[j+1];
         j += 2;
     }
 
     for(int i = 0; i < num_neighbours; i++) {
         if(addr.sin_addr.s_addr != neighbours[i].addr.sin_addr.s_addr || addr.sin_port != neighbours[i].addr.sin_port) {
-            sendto(udp_fd, buf, size, 0, (struct sockaddr*)&neighbours[i].addr, sizeof(neighbours[i].addr));
+            sendto(udp_fd, buf, size * 2 + 6, 0, (struct sockaddr*)&neighbours[i].addr, sizeof(neighbours[i].addr));
         }
     }
 }
@@ -104,7 +106,7 @@ size_t create_link_state_msg() {
 
 void print_graph() {
     for (int i = 0; i < 26; i++) for (int j = 0; j < i; j++) {
-        if(adj[i][j] != 0) printf("%c -> %c : %u\n", 'A' + i, 'A' + j, adj[i][j]);
+        if(adj[j][i] != 0) printf("%c -> %c : %u\n", 'A' + j, 'A' + i, adj[j][i]);
     } printf("\n");
 }
 
@@ -127,6 +129,7 @@ void update_state(){
 
     unsigned char* entry = &buf[3];
     num_neighbours = 0;
+    memset(&adj[me.id], 0, sizeof(adj[me.id]));
     for(int i = 0; i < length/8; i++) {
         memcpy(&neighbours[num_neighbours].addr.sin_addr.s_addr, entry, 4);
         neighbours[num_neighbours].addr.sin_port = htons(entry[4] * 256 + entry[5]);
@@ -136,6 +139,7 @@ void update_state(){
         if(entry[7] == 0) {
             memcpy(&me, &neighbours[num_neighbours], sizeof(me));
         } else {
+            adj[me.id][neighbours[num_neighbours].id] = neighbours[num_neighbours].dist;
             num_neighbours++;
         }
 
@@ -146,6 +150,7 @@ void update_state(){
 
 void broadcast_state(){
     size_t size = create_link_state_msg();
+    LOG("Broadcasting my state...\n");
     for(int i = 0; i < num_neighbours; i++) {
         sendto(udp_fd, buf, size, 0, (struct sockaddr*)&neighbours[i].addr, sizeof(neighbours[i].addr));
     }
@@ -191,6 +196,9 @@ int main(int argc, char** argv){
     send_connect(&node_addr);
     update_state();
     broadcast_state();
+
+    
+    struct timeval timeout;
     
     fd_set readfds;
     int nfds = 1 + (tcp_fd > udp_fd ? tcp_fd : udp_fd);
@@ -200,7 +208,14 @@ int main(int argc, char** argv){
         FD_SET(tcp_fd, &readfds);
         FD_SET(udp_fd, &readfds);
 
-        int active = select(nfds, &readfds, NULL, NULL, NULL);
+        int active = select(nfds, &readfds, NULL, NULL, &timeout);
+        if(active <= 0){
+            timeout.tv_sec = 10;
+            timeout.tv_usec = 10000000;
+            broadcast_state();
+            print_graph();
+        }
+
         if(FD_ISSET(tcp_fd, &readfds)) {
             update_state();
             broadcast_state();

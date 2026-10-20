@@ -4,4 +4,8 @@ bin/vn: main.c
 run: bin/vn
 	./run_vns $(NUM_PROCS)
 
-.PHONY : debug
+clean:
+	rm bin/*
+
+.PHONY:
+	clean
