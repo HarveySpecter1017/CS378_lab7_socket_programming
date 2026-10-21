@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,15 +38,14 @@ int udp_fd;
 int tcp_fd;
 
 void print_neighbours(void) {
-    printf("%-5s %-7s %-16s %-6s\n",
-           "ID", "DIST", "IP", "PORT");
+    printf("Update from Oracle -> %c : ", me.id + 'A');
     for (int i = 0; i < num_neighbours; i++) {
-        printf("%-5c %-7u %-16s %-6u\n",
+        printf("(%c : %u) ",
                neighbours[i].id + 'A',
-               (unsigned int)neighbours[i].dist,
-               inet_ntoa(neighbours[i].addr.sin_addr),
-               (unsigned int)ntohs(neighbours[i].addr.sin_port));
+               (unsigned int)neighbours[i].dist);
     }
+    printf("\n");
+    fflush(stdout);
 }
 
 void send_connect(const struct sockaddr_in* my_addr) {
@@ -105,14 +105,21 @@ size_t create_link_state_msg() {
 }
 
 void print_graph() {
+    printf("\n");
+    printf("--Connections--\n");
     for (int i = 0; i < 26; i++) for (int j = 0; j < i; j++) {
         if(adj[j][i] != 0) printf("%c -> %c : %u\n", 'A' + j, 'A' + i, adj[j][i]);
-    } printf("\n");
+    }
+    fflush(stdout);
 }
 
 void update_state(){
     int read = recv(tcp_fd, buf, sizeof(buf), 0);
-    if(read == 0) exit(0);
+    if(read == 0) {
+        close(tcp_fd);
+        close(udp_fd);
+        exit(0);
+    }
     
     if(buf[0] != 2) LOG("[Error] Wrong Type Recieved\n");
     size_t length = buf[1] * 256 + buf[2];
@@ -187,7 +194,7 @@ int main(int argc, char** argv){
         oracle_addr.sin_port = htons(atoi(argv[2]));
         tcp_fd = socket(AF_INET, SOCK_STREAM, 0);
         LOG("[Info] Opening UDP socket fd=%d\n", udp_fd);
-        LOG("[Info] Connecting to Oracle...");
+        LOG("[Info] Connecting to Oracle...\n");
         int ret  = connect(tcp_fd, (struct sockaddr*) &oracle_addr, sizeof(oracle_addr));
         LOG("[Info] Connection returned %d\n", ret);
         if(ret != 0) perror("connect");
