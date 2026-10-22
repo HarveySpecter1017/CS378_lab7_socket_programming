@@ -105,12 +105,30 @@ size_t create_link_state_msg() {
 }
 
 void print_graph() {
-    printf("\n");
-    printf("--Connections--\n");
-    for (int i = 0; i < 26; i++) for (int j = 0; j < i; j++) {
-        if(adj[j][i] != 0) printf("%c -> %c : %u\n", 'A' + j, 'A' + i, adj[j][i]);
+    printf("[Periodic] Known Topology:\n");
+    int visited[26] = {};
+    int q[27], front = 0, rear = 0;
+
+    visited[me.id] = 1;
+    q[rear++] = me.id;
+
+    while(front < rear) {
+        int u = q[front++];
+        printf("%c -> [", 'A' + u);
+        for(int v = 0; v < 26; v++) if (adj[u][v]){
+            printf("(%c, %d), ", 'A' + v, adj[u][v]);
+            if(!visited[v]) {
+                visited[v] = 1;
+                q[rear++] = v;
+            }
+        }
+        printf("]\n");
     }
-    fflush(stdout);
+
+    for(int i = 0; i < 26; i++){
+        if(visited[i] == 0)
+            memset(&adj[i], 0, sizeof(adj[i]));
+    }
 }
 
 void update_state(){
