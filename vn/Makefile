@@ -1,3 +1,7 @@
+ifndef NUM_PROCS
+$(error Usage: make [run|run-debug] NUM_PROCS=<number>)
+endif
+
 run: bin/vn
 	./run_vns.sh $(NUM_PROCS)
 
