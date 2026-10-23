@@ -59,7 +59,7 @@ void send_connect(const struct sockaddr_in* my_addr) {
 
 void recieve_link_state(){
     struct sockaddr_in addr;
-    socklen_t addr_len;
+    socklen_t addr_len = sizeof(addr);
     int msg_len = recvfrom(udp_fd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
     
     char id = buf[0];
@@ -247,7 +247,9 @@ int main(int argc, char** argv){
         FD_SET(udp_fd, &readfds);
 
         int active = select(nfds, &readfds, NULL, NULL, &timeout);
-        if(active <= 0){
+        if(active < 0)
+            perror("active");
+        if(active == 0){
             timeout.tv_sec = 10;
             timeout.tv_usec = 10000000;
             broadcast_state();
