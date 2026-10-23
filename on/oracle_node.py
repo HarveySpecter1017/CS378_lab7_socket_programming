@@ -16,8 +16,6 @@ MSG_LINK_STATE = 2
 
 
 def extract_messages(buf):
-    """Cut complete messages off the front of buf.
-    Returns (list of (type, body), leftover bytes)."""
     msgs = []
     while len(buf) >= HDR.size:
         mtype, blen = HDR.unpack_from(buf)
@@ -29,7 +27,6 @@ def extract_messages(buf):
 
 
 def handle_message(idx, mtype, body, nodes):
-    """Returns True if a valid CONNECT was decoded and stored."""
     if mtype == MSG_CONNECT:
         if len(body) != 6:
             print("node %s: bad CONNECT length %d" % (chr(65 + idx), len(body)))
@@ -49,7 +46,6 @@ def pack_tuple(nodes, j, cost):
 
 
 def build_link_state(idx, graph, nodes):
-    """Full LINK-STATE message for node idx: its own tuple (cost 0) + one per neighbour."""
     n = len(graph)
     body = pack_tuple(nodes, idx, 0)
     if idx < n:                                 
@@ -76,22 +72,16 @@ def broadcast(conns, graph, nodes):
 
 
 def main():
-    # step 1
     if len(sys.argv) != 3:
         print("usage: python3 oracle_node.py <config_file> <bind_ip>")
         sys.exit(1)
     path = sys.argv[1]
     bind_ip = sys.argv[2]
-    if not os.path.isfile(path):
-        print("config file not found:", path)
-        sys.exit(1)
 
-    # step 2
     graph = read_config(path)
     n = len(graph)
     print("loaded config: %d nodes" % n)
 
-    # step 3
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -138,22 +128,18 @@ def main():
                     bufs[idx] = b''
                     nodes[idx] = None
                 else:
-                    # step 5
                     print("node %s: recv %d bytes: %s" % (chr(65 + idx), len(data), data.hex()))
                     bufs[idx] += data
                     msgs, bufs[idx] = extract_messages(bufs[idx])
                     for mtype, body in msgs:
-                        # step 6
                         if handle_message(idx, mtype, body, nodes):
-                            # step 9
                             if started:
-                                send_link_state(conns, idx, graph, nodes)   # late joiner / island
+                                send_link_state(conns, idx, graph, nodes)  
                             elif len(nodes) >= n and all(x is not None for x in nodes[:n]):
                                 started = True
                                 print("all %d nodes have sent CONNECT, sending LINK-STATE to everyone" % n)
-                                broadcast(conns, graph, nodes)              # all N connected
-
-        # step 4
+                                broadcast(conns, graph, nodes) 
+        
         try:
             new_mtime = os.stat(path).st_mtime
         except OSError:
@@ -174,7 +160,7 @@ def main():
                     for row in graph:
                         print(row)
                     if started:
-                        broadcast(conns, graph, nodes)    # step 9
+                        broadcast(conns, graph, nodes) 
 
 
 if __name__ == '__main__':
