@@ -76,7 +76,6 @@ def main():
         print("usage: python3 oracle_node.py <config_file> <bind_ip>")
         sys.exit(1)
     path = sys.argv[1]
-    # bind_ip = sys.argv[2]
 
     graph = read_config(path)
     n = len(graph)
