@@ -1,16 +1,18 @@
-ON_IP=10.51.17.57
+ON_IP=192.168.0.102
 ON_PORT=5000
 
-MY_IP=10.51.5.20
+MY_IP=192.168.0.110
 PORT=5010
 
 mkdir -p outputs
+mkdir -p logs
+rm outputs/*
+rm logs/*
 
 BIN="./bin/vn"
 i=$1
 
 if [[ "$2" == "--debug" ]]; then
-    mkdir -p logs
     BIN="./bin/vn_debug"
 fi
 

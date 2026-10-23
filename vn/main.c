@@ -31,7 +31,7 @@ struct VN neighbours[26];
 size_t num_neighbours;
 
 uint16_t latest_seqno[26] = {}; 
-int adj[26][26] = {};
+uint8_t adj[26][26] = {};
 unsigned seq_no = 1;
 
 int udp_fd;
@@ -44,6 +44,7 @@ void print_neighbours(void) {
                neighbours[i].id + 'A',
                (unsigned int)neighbours[i].dist);
     }
+    printf("\n");
     printf("\n");
     fflush(stdout);
 }
@@ -60,13 +61,30 @@ void recieve_link_state(){
     struct sockaddr_in addr;
     socklen_t addr_len;
     int msg_len = recvfrom(udp_fd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addr_len);
-    buf[msg_len] = 0;
     
     char id = buf[0];
     int size = buf[1];
     unsigned seq_no = ntohl(*(int*)(&buf[2]));
 
-    LOG("Recieved Packet : %c : %u : %lu :", id + 'A', size, seq_no);
+    if(6 + size*2 != msg_len) {
+        LOG("[Info] Recieved invalid packet, ignoring\n");
+        return;
+    }
+
+    uint8_t temp[26] = {};
+    {
+        int j = 6;
+        for(int i = 0; i < size; i++){
+            if(buf[j] > 25 || buf[j+1] == 0) {
+                LOG("[Info] Recieved invalid packet, ignoring\n");
+                return;
+            }
+            temp[buf[j]] = buf[j+1];
+            j += 2;
+        }
+    }
+
+    LOG("[Info] Recieved Packet : %c : %u : %lu :", id + 'A', size, seq_no);
     for(int i = 0; i < size; i++) {LOG(" (%c, %d)", buf[6 + 2*i] + 'A', buf[7 + 2*i]);}
     LOG("\n");
     
@@ -74,13 +92,8 @@ void recieve_link_state(){
         return;
 
     latest_seqno[id] = seq_no;
-    int j = 6;
 
-    memset(&adj[id], 0, sizeof(adj[id]));
-    for(int i = 0; i < size; i++){
-        adj[id][buf[j]] = buf[j+1];
-        j += 2;
-    }
+    memcpy(&adj[id], temp, sizeof(adj[id]));
 
     for(int i = 0; i < num_neighbours; i++) {
         if(addr.sin_addr.s_addr != neighbours[i].addr.sin_addr.s_addr || addr.sin_port != neighbours[i].addr.sin_port) {
@@ -175,7 +188,7 @@ void update_state(){
 
 void broadcast_state(){
     size_t size = create_link_state_msg();
-    LOG("Broadcasting my state...\n");
+    LOG("[Info] Broadcasting my state...\n");
     for(int i = 0; i < num_neighbours; i++) {
         sendto(udp_fd, buf, size, 0, (struct sockaddr*)&neighbours[i].addr, sizeof(neighbours[i].addr));
     }

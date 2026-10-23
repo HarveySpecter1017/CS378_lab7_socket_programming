@@ -1,10 +1,13 @@
+run: bin/vn
+	./run_vns.sh $(NUM_PROCS)
+
+run-debug: bin/vn_debug
+	./run_vns.sh $(NUM_PROCS) --debug
+
 bin/vn: main.c
 	gcc main.c -o bin/vn
 
-run: bin/vn
-	./run_vns $(NUM_PROCS)
-
-debug: main.c
+bin/vn_debug: main.c
 	gcc -DDEBUG main.c -o bin/vn_debug
 
 clean:
