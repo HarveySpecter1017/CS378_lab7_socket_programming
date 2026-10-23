@@ -3,18 +3,14 @@
 # -1 means no link
 
 
-1 1 1 1 7 
-# Costs from A to B, C, D, E
--1	-1	-1	-1
-# Costs from B to C, D, E
-<<<<<<< HEAD
+
+# Costs from A to B, C, D, E , F , G
+23	2	33	-1
+# Costs from B to C, D, E , F ,G
 -1	-1	-1
-# Costs from C to D, E
--1	-1  
-=======
-2	-1	-1
-# Costs from C to D, E
--1	-1
->>>>>>> e54b901b1cd832baf43182128289e493ae68ca07
-# Costs from D to E
--1
+# Costs from C to D, E , F , G
+67  67
+# Costs from D to E, F, G
+7
+# Costs from E to F,G
+# Costs from F to G

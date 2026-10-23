@@ -72,25 +72,24 @@ def broadcast(conns, graph, nodes):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print("usage: python3 oracle_node.py <config_file> <bind_ip>")
         sys.exit(1)
     path = sys.argv[1]
-    bind_ip = sys.argv[2]
+    # bind_ip = sys.argv[2]
 
     graph = read_config(path)
     n = len(graph)
     print("loaded config: %d nodes" % n)
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        srv.bind((bind_ip, PORT))
+        srv.bind(('', PORT))
     except OSError as e:
-        print("cannot bind %s:%d: %s" % (bind_ip, PORT, e))
+        print("cannot bind %s:%d: %s" % ('', PORT, e))
         sys.exit(1)
     srv.listen(32)
-    print("listening on %s:%d" % (bind_ip, PORT))
+    print("listening on %s:%d" % ('', PORT))
 
     conns = []    
     bufs = []     
