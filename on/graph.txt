@@ -7,8 +7,14 @@
 # Costs from A to B, C, D, E
 -1	-1	-1	-1
 # Costs from B to C, D, E
+<<<<<<< HEAD
 -1	-1	-1
 # Costs from C to D, E
 -1	-1  
+=======
+2	-1	-1
+# Costs from C to D, E
+-1	-1
+>>>>>>> e54b901b1cd832baf43182128289e493ae68ca07
 # Costs from D to E
 -1
